@@ -2,12 +2,9 @@ package broker
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"github.com/Octops/agones-event-broadcaster/pkg/events"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -20,31 +17,6 @@ type RelayConfig struct {
 	OnUpdateUrl    string
 	OnDeleteUrl    string
 	WorkerReplicas int
-}
-
-type RelayRequest struct {
-	Method    string
-	Endpoints []string
-	Payload   *Payload
-}
-
-type Payload struct {
-	Body *events.Envelope
-}
-
-type RequestQueue struct {
-	Name  string
-	Queue chan *RelayRequest
-}
-
-type EventRelayRecord struct {
-	Method       string
-	URL          []string
-	RequestQueue *RequestQueue
-}
-
-type EventRelayRegistry struct {
-	Records map[string]*EventRelayRecord
 }
 
 type RelayHTTP struct {
@@ -177,42 +149,6 @@ func (r *RelayHTTP) EnqueueRequest(queue chan *RelayRequest, request *RelayReque
 	}
 
 	return nil
-}
-
-func (p *Payload) Read(b []byte) (n int, err error) {
-	j, err := json.Marshal(p)
-	if err != nil {
-		return 0, errors.Wrap(io.ErrUnexpectedEOF, err.Error())
-	}
-
-	count := copy(b, j)
-	return count, io.EOF
-}
-
-func (r *EventRelayRegistry) Register(eventSource string, record *EventRelayRecord) {
-	if len(r.Records) == 0 {
-		r.Records = map[string]*EventRelayRecord{}
-	}
-
-	r.Records[eventSource] = record
-}
-
-func (r *EventRelayRegistry) Get(eventSource string) (*EventRelayRecord, error) {
-	if _, ok := r.Records[eventSource]; !ok {
-		return nil, fmt.Errorf("event %q is not registry, sending aborted", eventSource)
-	}
-
-	return r.Records[eventSource], nil
-}
-
-func createRequest(record *EventRelayRecord, envelope *events.Envelope) *RelayRequest {
-	request := &RelayRequest{
-		Payload: &Payload{Body: envelope},
-	}
-	request.Method = record.Method
-	request.Endpoints = record.URL
-
-	return request
 }
 
 func applyConfigDefaults(config *RelayConfig) {
