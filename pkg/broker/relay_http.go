@@ -3,6 +3,7 @@ package broker
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/Octops/agones-event-broadcaster/pkg/events"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -17,7 +18,7 @@ import (
 type RelayConfig struct {
 	OnAddUrl       string
 	OnUpdateUrl    string
-	OnDelete       string
+	OnDeleteUrl    string
 	WorkerReplicas int
 }
 
@@ -36,19 +37,26 @@ type RequestQueue struct {
 	Queue chan *RelayRequest
 }
 
+type EventRelayRecord struct {
+	Method       string
+	URL          []string
+	RequestQueue *RequestQueue
+}
+
+type EventRelayRegistry struct {
+	Records map[string]*EventRelayRecord
+}
+
 type RelayHTTP struct {
 	logger         *logrus.Entry
 	wg             *sync.WaitGroup
 	Client         Client
-	OnAddURL       []string
-	OnUpdateURL    []string
-	OnDeleteURL    []string
-	onAddQueue     *RequestQueue
-	onUpdateQueue  *RequestQueue
-	onDeleteQueue  *RequestQueue
+	Registry       *EventRelayRegistry
+	Workers        []*Worker
 	workerReplicas int
 }
 
+// TODO: Validate if URLs are valid http endpoints.
 type Client func(req *http.Request) (*http.Response, error)
 
 // TODO: Implement auth mechanism: BasicAuth
@@ -56,36 +64,49 @@ func NewRelayHTTP(logger *logrus.Entry, config RelayConfig, client Client) (*Rel
 	applyConfigDefaults(&config)
 
 	relay := &RelayHTTP{
-		logger: logger,
-		wg:     &sync.WaitGroup{},
-		Client: client,
-		onAddQueue: &RequestQueue{
-			Name:  "OnAdd",
-			Queue: make(chan *RelayRequest, 1024),
-		},
-		onUpdateQueue: &RequestQueue{
-			Name:  "OnUpdate",
-			Queue: make(chan *RelayRequest, 1024),
-		},
-		onDeleteQueue: &RequestQueue{
-			Name:  "OnDelete",
-			Queue: make(chan *RelayRequest, 1024),
-		},
+		logger:         logger,
+		wg:             &sync.WaitGroup{},
+		Client:         client,
+		Registry:       &EventRelayRegistry{},
+		Workers:        make([]*Worker, config.WorkerReplicas*3), // 3 Events: OnAdd, OnUpdate, OnDelete
 		workerReplicas: config.WorkerReplicas,
 	}
 
-	// TODO: Validate if urls are valid http endpoints.
-	relay.OnAddURL = strings.Split(config.OnAddUrl, ",")
-	relay.OnUpdateURL = strings.Split(config.OnUpdateUrl, ",")
-	relay.OnDeleteURL = strings.Split(config.OnDelete, ",")
+	relay.Registry.Register(events.EventSourceOnAdd.String(), &EventRelayRecord{
+		Method: http.MethodPost,
+		URL:    strings.Split(config.OnAddUrl, ","),
+		RequestQueue: &RequestQueue{
+			Name:  "OnAdd",
+			Queue: make(chan *RelayRequest, 1024),
+		},
+	})
+
+	relay.Registry.Register(events.EventSourceOnUpdate.String(), &EventRelayRecord{
+		Method: http.MethodPut,
+		URL:    strings.Split(config.OnUpdateUrl, ","),
+		RequestQueue: &RequestQueue{
+			Name:  "OnUpdate",
+			Queue: make(chan *RelayRequest, 1024),
+		},
+	})
+
+	relay.Registry.Register(events.EventSourceOnDelete.String(), &EventRelayRecord{
+		Method: http.MethodDelete,
+		URL:    strings.Split(config.OnDeleteUrl, ","),
+		RequestQueue: &RequestQueue{
+			Name:  "OnDelete",
+			Queue: make(chan *RelayRequest, 1024),
+		},
+	})
 
 	return relay, nil
 }
 
 func (r *RelayHTTP) Start(ctx context.Context) error {
-	r.StartWorkers(ctx, r.onAddQueue, r.Client)
-	r.StartWorkers(ctx, r.onUpdateQueue, r.Client)
-	r.StartWorkers(ctx, r.onDeleteQueue, r.Client)
+	r.InitWorkers(ctx, r.workerReplicas, r.Client)
+	if err := r.StartWorkers(ctx); err != nil {
+		r.logger.Fatal(errors.Wrap(err, "workers could not be started"))
+	}
 
 	<-ctx.Done()
 	r.logger.Info("stopping Relay HTTP broker")
@@ -94,20 +115,32 @@ func (r *RelayHTTP) Start(ctx context.Context) error {
 	return nil
 }
 
-func (r *RelayHTTP) StartWorkers(ctx context.Context, queue *RequestQueue, client Client) {
-	for i := 0; i < r.workerReplicas; i++ {
-		r.wg.Add(1)
-		id := i + 1
-		w := NewWorker(queue.Name+strconv.Itoa(id), queue, client)
+func (r *RelayHTTP) InitWorkers(ctx context.Context, replicas int, client Client) {
+	count := 0
+	for _, record := range r.Registry.Records {
+		rr := record
+		for i := 0; i < replicas; i++ {
+			id := i + 1
+			r.Workers[count] = NewWorker(rr.RequestQueue.Name+strconv.Itoa(id), rr.RequestQueue, client)
+		}
+		count++
+	}
+}
 
+func (r *RelayHTTP) StartWorkers(ctx context.Context) error {
+	for i := 0; i < len(r.Workers); i++ {
+		r.wg.Add(1)
+		i := i
 		go func() {
 			defer r.wg.Done()
 
-			if err := w.Start(ctx); err != nil {
+			if err := r.Workers[i].Start(ctx); err != nil {
 				r.logger.Fatal(errors.Wrap(err, "error starting worker"))
 			}
 		}()
 	}
+
+	return nil
 }
 
 // Called by the Broadcaster and builds the envelope that will be send as argument to the SendMessage function
@@ -128,26 +161,12 @@ func (r *RelayHTTP) SendMessage(envelope *events.Envelope) error {
 		return err
 	}
 
-	request := &RelayRequest{
-		Payload: &Payload{Body: envelope},
+	record, err := r.Registry.Get(eventSource)
+	if err != nil {
+		return errors.Wrap(err, "aborting sending message")
 	}
 
-	switch events.EventSource(eventSource) {
-	case events.EventSourceOnAdd:
-		request.Method = http.MethodPost
-		request.Endpoints = r.OnAddURL
-		return r.EnqueueRequest(r.onAddQueue.Queue, request)
-	case events.EventSourceOnUpdate:
-		request.Method = http.MethodPut
-		request.Endpoints = r.OnUpdateURL
-		return r.EnqueueRequest(r.onUpdateQueue.Queue, request)
-	case events.EventSourceOnDelete:
-		request.Method = http.MethodDelete
-		request.Endpoints = r.OnDeleteURL
-		return r.EnqueueRequest(r.onDeleteQueue.Queue, request)
-	}
-
-	return nil
+	return r.EnqueueRequest(record.RequestQueue.Queue, createRequest(record, envelope))
 }
 
 func (r *RelayHTTP) EnqueueRequest(queue chan *RelayRequest, request *RelayRequest) error {
@@ -168,6 +187,32 @@ func (p *Payload) Read(b []byte) (n int, err error) {
 
 	count := copy(b, j)
 	return count, io.EOF
+}
+
+func (r *EventRelayRegistry) Register(eventSource string, record *EventRelayRecord) {
+	if len(r.Records) == 0 {
+		r.Records = map[string]*EventRelayRecord{}
+	}
+
+	r.Records[eventSource] = record
+}
+
+func (r *EventRelayRegistry) Get(eventSource string) (*EventRelayRecord, error) {
+	if _, ok := r.Records[eventSource]; !ok {
+		return nil, fmt.Errorf("event %q is not registry, sending aborted", eventSource)
+	}
+
+	return r.Records[eventSource], nil
+}
+
+func createRequest(record *EventRelayRecord, envelope *events.Envelope) *RelayRequest {
+	request := &RelayRequest{
+		Payload: &Payload{Body: envelope},
+	}
+	request.Method = record.Method
+	request.Endpoints = record.URL
+
+	return request
 }
 
 func applyConfigDefaults(config *RelayConfig) {
