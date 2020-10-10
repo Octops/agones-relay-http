@@ -88,7 +88,7 @@ func TestRelayHTTP_SendMessage(t *testing.T) {
 			relay, err := NewRelayHTTP(logger, RelayConfig{
 				OnAddUrl:    "http://localhost:8090/add",
 				OnUpdateUrl: "http://localhost:8090/update",
-				OnDelete:    "http://localhost:8090/delete",
+				OnDeleteUrl: "http://localhost:8090/delete",
 			}, client)
 
 			require.NoError(t, err)
