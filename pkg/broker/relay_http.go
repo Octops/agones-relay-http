@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/Octops/agones-event-broadcaster/pkg/events"
-	"github.com/Octops/agones-relay-http/internal/runtime"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -53,7 +53,7 @@ type Client func(req *http.Request) (*http.Response, error)
 
 // TODO: Implement auth mechanism: BasicAuth
 func NewRelayHTTP(logger *logrus.Entry, config RelayConfig, client Client) (*RelayHTTP, error) {
-	applyDefaults(&config)
+	applyConfigDefaults(&config)
 
 	relay := &RelayHTTP{
 		logger: logger,
@@ -163,22 +163,17 @@ func (r *RelayHTTP) EnqueueRequest(queue chan *RelayRequest, request *RelayReque
 func (p *Payload) Read(b []byte) (n int, err error) {
 	j, err := json.Marshal(p)
 	if err != nil {
-		return 0, errors.Wrap(err, "payload could not be read")
+		return 0, errors.Wrap(io.ErrUnexpectedEOF, err.Error())
 	}
 
-	b = j
-	return len(b), nil
+	count := copy(b, j)
+	return count, io.EOF
 }
 
-func applyDefaults(config *RelayConfig) {
+func applyConfigDefaults(config *RelayConfig) {
 	if config.WorkerReplicas <= 0 {
 		config.WorkerReplicas = 1
 	}
-}
-
-func FakeClient(req *http.Request) (*http.Response, error) {
-	runtime.Logger().WithField("source", "FakeClient").Debugf("Fake Request Sent: %s", req.URL)
-	return &http.Response{Status: "200 OK"}, nil
 }
 
 func getEventSourceHeader(envelope *events.Envelope) (string, error) {
