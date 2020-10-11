@@ -49,7 +49,7 @@ func (w Worker) Do(request *RelayRequest) {
 
 		response, err := w.Client(req)
 		if err != nil {
-			w.logger.Error(errors.Wrapf(err, "request to %s %s failed", request.Method, url))
+			w.logger.Error(errors.Wrapf(err, "%s %s failed", request.Method, url))
 			return
 		}
 
