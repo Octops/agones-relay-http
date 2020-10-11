@@ -16,15 +16,31 @@ limitations under the License.
 package cmd
 
 import (
+	v1 "agones.dev/agones/pkg/apis/agones/v1"
+	"context"
 	"fmt"
+	"github.com/Octops/agones-event-broadcaster/pkg/broadcaster"
+	"github.com/Octops/agones-relay-http/internal/runtime"
+	"github.com/Octops/agones-relay-http/internal/version"
+	"github.com/Octops/agones-relay-http/pkg/broker"
+	"github.com/Octops/agones-relay-http/pkg/transport"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/tools/clientcmd"
 	"os"
+	"time"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 )
 
-var cfgFile string
+var (
+	cfgFile    string
+	verbose    bool
+	masterURL  string
+	kubeconfig string
+	syncPeriod string
+)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -38,7 +54,53 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
-	//	Run: func(cmd *cobra.Command, args []string) { },
+	Run: func(cmd *cobra.Command, args []string) {
+		logger := runtime.NewLogger(verbose).WithField("app", "broadcaster")
+		logger.Debug(version.Info())
+
+		cfg, err := clientcmd.BuildConfigFromFlags(masterURL, kubeconfig)
+		if err != nil {
+			logger.Fatalf("Error building kubeconfig: %s", err.Error())
+		}
+
+		ctx, cancel := context.WithCancel(context.Background())
+		runtime.SetupSignal(cancel)
+
+		duration, err := time.ParseDuration(syncPeriod)
+		if err != nil {
+			logger.WithError(err).Fatalf("error parsing sync-period flag: %s", syncPeriod)
+		}
+
+		cli, err := transport.NewClient(logger, "15s")
+		if err != nil {
+			logger.Fatal(err)
+		}
+
+		// TODO: URLS must be flags. Consider unique URL flag
+		relayConfig := broker.RelayConfig{
+			OnAddUrl:       "http://localhost:8090/webhook",
+			OnUpdateUrl:    "http://localhost:8090/webhook",
+			OnDeleteUrl:    "http://localhost:8090/webhook",
+			WorkerReplicas: 3,
+		}
+
+		bk, err := broker.NewRelayHTTP(logger, relayConfig, cli.Do)
+		if err != nil {
+			logger.Fatal(err)
+		}
+
+		go bk.Start(ctx)
+
+		gsBroadcaster := broadcaster.New(cfg, bk, duration)
+		gsBroadcaster.WithWatcherFor(&v1.Fleet{}).WithWatcherFor(&v1.GameServer{})
+		if err := gsBroadcaster.Build(); err != nil {
+			logger.Fatal(errors.Wrap(err, "error building broadcaster"))
+		}
+
+		if err := gsBroadcaster.Start(); err != nil {
+			logger.Fatal(errors.Wrap(err, "error starting broadcaster"))
+		}
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -53,15 +115,10 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.agones-relay-http.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.Flags().StringVar(&kubeconfig, "kubeconfig", "", "Set KUBECONFIG")
+	rootCmd.Flags().StringVar(&masterURL, "master", "", "The addr of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+	rootCmd.Flags().StringVar(&syncPeriod, "sync-period", "35s", "Set the minimum frequency at which watched resources are reconciled")
+	rootCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose logs")
 }
 
 // initConfig reads in config file and ENV variables if set.
