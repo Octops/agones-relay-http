@@ -19,8 +19,8 @@ type Worker struct {
 func NewWorker(id string, queue *RequestQueue, client Client) *Worker {
 	return &Worker{
 		logger: runtime.Logger().WithFields(logrus.Fields{
-			"id":    id,
-			"queue": queue.Name,
+			"worker": id,
+			"queue":  queue.Name,
 		}),
 		Id:           id,
 		RequestQueue: queue,

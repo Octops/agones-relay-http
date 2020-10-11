@@ -2,11 +2,11 @@ package broker
 
 import (
 	"context"
+	"fmt"
 	"github.com/Octops/agones-event-broadcaster/pkg/events"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -93,7 +93,8 @@ func (r *RelayHTTP) InitWorkers(replicas int, client Client) {
 		rr := record
 		for i := 0; i < replicas; i++ {
 			id := i + 1
-			r.Workers[count] = NewWorker(rr.RequestQueue.Name+strconv.Itoa(id), rr.RequestQueue, client)
+			workerID := fmt.Sprintf("%d", id)
+			r.Workers[count] = NewWorker(workerID, rr.RequestQueue, client)
 			count++
 		}
 	}
