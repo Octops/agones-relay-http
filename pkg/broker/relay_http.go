@@ -75,7 +75,7 @@ func NewRelayHTTP(logger *logrus.Entry, config RelayConfig, client Client) (*Rel
 }
 
 func (r *RelayHTTP) Start(ctx context.Context) error {
-	r.InitWorkers(ctx, r.workerReplicas, r.Client)
+	r.InitWorkers(r.workerReplicas, r.Client)
 	if err := r.StartWorkers(ctx); err != nil {
 		r.logger.Fatal(errors.Wrap(err, "workers could not be started"))
 	}
@@ -87,15 +87,15 @@ func (r *RelayHTTP) Start(ctx context.Context) error {
 	return nil
 }
 
-func (r *RelayHTTP) InitWorkers(ctx context.Context, replicas int, client Client) {
+func (r *RelayHTTP) InitWorkers(replicas int, client Client) {
 	count := 0
 	for _, record := range r.Registry.Records {
 		rr := record
 		for i := 0; i < replicas; i++ {
 			id := i + 1
 			r.Workers[count] = NewWorker(rr.RequestQueue.Name+strconv.Itoa(id), rr.RequestQueue, client)
+			count++
 		}
-		count++
 	}
 }
 
