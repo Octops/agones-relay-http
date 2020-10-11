@@ -7,8 +7,10 @@ import (
 )
 
 type Client struct {
-	logger *logrus.Entry
-	client *http.Client
+	logger   *logrus.Entry
+	client   *http.Client
+	retries  int
+	interval time.Duration
 }
 
 func NewClient(logger *logrus.Entry, timeout string) (*Client, error) {
@@ -22,9 +24,40 @@ func NewClient(logger *logrus.Entry, timeout string) (*Client, error) {
 		client: &http.Client{
 			Timeout: duration,
 		},
+		retries:  5,
+		interval: 5 * time.Second,
 	}, nil
 }
 
 func (c *Client) Do(req *http.Request) (*http.Response, error) {
-	return c.client.Do(req)
+	response := &http.Response{}
+	fn := func() error {
+		resp, err := c.client.Do(req)
+		if err != nil {
+			return err
+		}
+
+		response = resp
+		return nil
+	}
+
+	err := withRetry(c.retries, c.interval, fn)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
+func withRetry(retries int, interval time.Duration, fn func() error) error {
+	var err error
+	for i := 0; i < retries; i++ {
+		err = fn()
+		if err == nil {
+			return nil
+		}
+		time.Sleep(interval)
+	}
+
+	return err
 }

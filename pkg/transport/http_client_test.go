@@ -202,6 +202,8 @@ func TestClient_Do(t *testing.T) {
 			req, err := http.NewRequest(tc.args.method, tc.args.url, tc.args.body)
 			require.NoError(t, err)
 
+			client.retries = 2
+			client.interval = time.Second
 			got, err := client.Do(req)
 			require.Equal(t, err != nil, tc.wantErr)
 
