@@ -30,6 +30,7 @@ func NewClient(logger *logrus.Entry, timeout string) (*Client, error) {
 }
 
 func (c *Client) Do(req *http.Request) (*http.Response, error) {
+	req.Header.Set("Content-Type", "application/json")
 	response := &http.Response{}
 	fn := func() error {
 		resp, err := c.client.Do(req)
