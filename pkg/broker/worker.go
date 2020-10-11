@@ -19,8 +19,8 @@ type Worker struct {
 func NewWorker(id string, queue *RequestQueue, client Client) *Worker {
 	return &Worker{
 		logger: runtime.Logger().WithFields(logrus.Fields{
-			"id":    id,
-			"queue": queue.Name,
+			"worker": id,
+			"queue":  queue.Name,
 		}),
 		Id:           id,
 		RequestQueue: queue,
@@ -49,7 +49,8 @@ func (w Worker) Do(request *RelayRequest) {
 
 		response, err := w.Client(req)
 		if err != nil {
-			w.logger.WithError(errors.Wrapf(err, "request to %s %s failed", request.Method, url))
+			w.logger.Error(errors.Wrapf(err, "%s %s failed", request.Method, url))
+			return
 		}
 
 		w.logger.Debugf("%s %s - %s", request.Method, url, response.Status)

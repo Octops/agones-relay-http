@@ -37,6 +37,7 @@ func (c *Client) Do(req *http.Request) (*http.Response, error) {
 			return err
 		}
 
+		defer resp.Body.Close()
 		response = resp
 		return nil
 	}
