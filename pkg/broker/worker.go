@@ -49,7 +49,8 @@ func (w Worker) Do(request *RelayRequest) {
 
 		response, err := w.Client(req)
 		if err != nil {
-			w.logger.WithError(errors.Wrapf(err, "request to %s %s failed", request.Method, url))
+			w.logger.Error(errors.Wrapf(err, "request to %s %s failed", request.Method, url))
+			return
 		}
 
 		w.logger.Debugf("%s %s - %s", request.Method, url, response.Status)
