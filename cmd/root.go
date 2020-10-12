@@ -131,13 +131,13 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.Flags().StringVar(&kubeconfig, "kubeconfig", "", "Set KUBECONFIG")
-	rootCmd.Flags().StringVar(&masterURL, "master", "", "The addr of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	rootCmd.Flags().StringVar(&syncPeriod, "sync-period", "35s", "Set the minimum frequency at which watched resources are reconciled")
-	rootCmd.Flags().StringVar(&onAddURL, "on-add-url", "http://localhost:8090/webhook", "List of URLs to be used for OnAdd Events. They must be separated by a comma. I.e: http://localhost,http://localhost:8080/webhook")
-	rootCmd.Flags().StringVar(&onUpdateURL, "on-update-url", "http://localhost:8090/webhook", "List of URLs to be used for OnUpdate Events. They must be separated by a comma. I.e: http://localhost,http://localhost:8080/webhook")
-	rootCmd.Flags().StringVar(&onDeleteURL, "on-delete-url", "http://localhost:8090/webhook", "List of URLs to be used for OnDelete Events. They must be separated by a comma. I.e: http://localhost,http://localhost:8080/webhook")
-	rootCmd.Flags().StringVar(&onEventURL, "on-event-url", "", "List of URLs to be used for all kinds of Events. If specified the on-add-url, on-update-url and on-delete-url will be ignored. They must be separated by a comma. I.e: http://localhost,http://localhost:8080/webhook")
+	rootCmd.Flags().StringVar(&kubeconfig, "kubeconfig", "", "set KUBECONFIG")
+	rootCmd.Flags().StringVar(&masterURL, "master", "", "address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+	rootCmd.Flags().StringVar(&syncPeriod, "sync-period", "35s", "set the minimum frequency at which watched resources are reconciled")
+	rootCmd.Flags().StringVar(&onAddURL, "on-add-url", "http://localhost:8090/webhook", "list of URLs for OnAdd Events separated by comma")
+	rootCmd.Flags().StringVar(&onUpdateURL, "on-update-url", "http://localhost:8090/webhook", "list of URLs for OnUpdate Events separated by comma")
+	rootCmd.Flags().StringVar(&onDeleteURL, "on-delete-url", "http://localhost:8090/webhook", "list of URLs for OnDelete Events separated by comma")
+	rootCmd.Flags().StringVar(&onEventURL, "on-event-url", "", "list of URLs for all kinds of Events separated by comma. If informed the other url flags will be ignored.")
 	rootCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose logs")
 }
 
