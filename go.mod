@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	agones.dev/agones v1.9.0
-	github.com/Octops/agones-event-broadcaster v0.1.9-alpha.3
+	github.com/Octops/agones-event-broadcaster v0.1.9-alpha.4
 	github.com/labstack/echo/v4 v4.1.17
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/pkg/errors v0.8.1
