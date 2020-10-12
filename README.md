@@ -4,7 +4,14 @@ Notify HTTP endpoints when state changes events happen to GameServers or Fleets.
 
 The published payload contains an entire representation of the GameServer or Fleet at the moment when an event the got fired. Possible types of events are OnAdd, OnUpdate and OnDelete.
 
-A practical usage for the Agones Relay HTTP is when the operator/user wants to keep a centralized store of all the GameServers and Fleets running across multiples clusters. In this kind of topology, the operator can deploy one Agones Relay on each cluster and point all of them to a central endpoint. Therefore, persisting this information on any kind of datastore.   
+A practical usage for the Agones Relay HTTP is when the operator/user wants to keep a centralized store of all the GameServers and Fleets running across multiples clusters. In this kind of topology, the operator can deploy one Agones Relay on each cluster and point all of them to a central endpoint. Therefore, persisting this information on any kind of datastore.
+
+This project was built on top of the [Agones Event Broadcaster](https://github.com/Octops/agones-event-broadcaster).
+
+### Agones
+> An open source, batteries-included, multiplayer dedicated game server scaling and orchestration platform that can run anywhere Kubernetes can run.
+
+You can find great documentation on https://agones.dev/site/
 
 **When a GameServer or Fleet state change event gets fired?**
 
