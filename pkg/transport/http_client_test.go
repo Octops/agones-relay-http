@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"strings"
 	"testing"
@@ -128,6 +129,11 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestClient_Do(t *testing.T) {
+	rand.Seed(time.Now().UnixNano())
+	min := 8000
+	max := 9000
+	port := rand.Intn(max-min) + min
+
 	type args struct {
 		method string
 		url    string
@@ -143,7 +149,7 @@ func TestClient_Do(t *testing.T) {
 			name: "it should send POST to endpoint and return StatusCode 200 OK",
 			args: args{
 				method: http.MethodPost,
-				url:    "http://localhost:8090",
+				url:    fmt.Sprintf("http://localhost:%d", port),
 				body:   strings.NewReader("Payload POST"),
 			},
 			want: &http.Response{
@@ -155,7 +161,7 @@ func TestClient_Do(t *testing.T) {
 			name: "it should send PUT to endpoint and return StatusCode 200 OK",
 			args: args{
 				method: http.MethodPut,
-				url:    "http://localhost:8090",
+				url:    fmt.Sprintf("http://localhost:%d", port),
 				body:   strings.NewReader("Payload PUT"),
 			},
 			want: &http.Response{
@@ -167,7 +173,7 @@ func TestClient_Do(t *testing.T) {
 			name: "it should send DELETE to endpoint and return StatusCode 200 OK",
 			args: args{
 				method: http.MethodDelete,
-				url:    "http://localhost:8090",
+				url:    fmt.Sprintf("http://localhost:%d", port),
 				body:   strings.NewReader("Payload DELETE"),
 			},
 			want: &http.Response{
@@ -179,7 +185,7 @@ func TestClient_Do(t *testing.T) {
 			name: "it should return error if endpoint is not available",
 			args: args{
 				method: http.MethodPost,
-				url:    "http://localhost:8091",
+				url:    "http://localhost:10000",
 				body:   strings.NewReader("Payload POST"),
 			},
 			want:    nil,
@@ -189,7 +195,7 @@ func TestClient_Do(t *testing.T) {
 
 	logger := runtime.NewLogger(true)
 	ctx, cancel := context.WithCancel(context.Background())
-	go startServer(ctx, ":8090")
+	go startServer(ctx, fmt.Sprintf(":%d", port))
 
 	defer cancel()
 
