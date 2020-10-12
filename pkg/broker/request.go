@@ -19,7 +19,7 @@ type RelayRequest struct {
 }
 
 type Payload struct {
-	Body *events.Envelope
+	Body *events.Envelope `json:"body"`
 }
 
 type RequestQueue struct {
