@@ -1,4 +1,4 @@
-.PHONY: all build clean get test up deploy-local
+.PHONY: all build clean get test up deploy-local release
 
 ## overridable Makefile variables
 # test to run
@@ -34,7 +34,9 @@ TESTS    := $(shell find internal cmd -name '*.go' -type f -not -name '*.pb.go' 
 
 OCTOPS_BIN := bin/agones-relay-http
 
-DOCKER_IMAGE_TAG ?= octops/agones-relay-http:${VERSION}
+IMAGE_REPO=octops/agones-relay-http
+DOCKER_IMAGE_TAG ?= $(IMAGE_REPO):${VERSION}
+RELEASE_TAG=0.1.0
 
 default: clean build
 
@@ -90,6 +92,12 @@ docker:
 
 push: docker
 	docker push $(DOCKER_IMAGE_TAG)
+
+release: docker
+	docker tag $(DOCKER_IMAGE_TAG) $(IMAGE_REPO):latest
+	docker push $(IMAGE_REPO):latest
+	docker tag $(DOCKER_IMAGE_TAG) $(IMAGE_REPO):$(RELEASE_TAG)
+	docker push $(IMAGE_REPO):$(RELEASE_TAG)
 
 up:
 	@echo Starting services
