@@ -2,17 +2,21 @@
 
 Notify HTTP endpoints when state changes events happen to GameServers or Fleets. 
 
-The published payload contains an entire representation of the GameServer or Fleet at the moment when event the got fired.
+The published payload contains an entire representation of the GameServer or Fleet at the moment when an event the got fired.
 
 The possible types of events are OnAdd, OnUpdate and OnDelete.
+
+## Use Cases
+
+
 
 **When a GameServer or Fleet state change event gets fired?**
 
 A few examples are:
 - The state of the GameServer changed during its all lifespan. Scheduled, Ready, Allocated, Shutdown, etc. 
-- The GameServer status fields like address, port or player tracking fields.
+- The GameServer status fields like address, port or player tracking fields changed.
 - Then the number of replicas of a Fleet went up or down.
-- Fleets status fields like: players capacity or count; allocated replicas, ready replicas and reserved replicas.
+- Fleets status fields like: players capacity or count, allocated replicas, ready replicas and reserved replicas changed.
  
 In addition to the state change events, the Agones Relay HTTP reacts to `reconcile` events. On an interval bases a complete state of the world gets published. That means all the current GameServers and Fleets states.
 The reconcile interval is controlled by the flag `--sync-period`. Make sure you don't set this value to low. The consequence could be a DDoS against the endpoints.
@@ -43,9 +47,8 @@ List of Params
 | namespace    | namespace of the resource | default                                         |
 | event_type   | type of the event fired   | fleet.events.deleted, gameserver.events.deleted |
 
-## Diagram?
-
-What kind of payload and Verbs
+## Diagram
+Check the [diagram](docs/overview-diagram.png) from the docs folder for a visual overview of the aplication. 
 
 ## How to Install
 
@@ -74,6 +77,8 @@ $ kubectl -f deploy/install.yaml
 ```
 
 ## Local Server
+
+Under the `hack` folder you can find the http server that can be used for local dev or testing. Start the server and use the url as the value for the url flags when running the agones relay application.
 ```bash
 # Use the flag  --verbose=true to output the whole received request body
 $ go run hack/server.go --verbose=false --addr=":8090" 
@@ -98,3 +103,38 @@ INFO[0087] webhook received: ondelete/gameserver.events.deleted default-simple-u
 INFO[0089] webhook received: ondelete/gameserver.events.deleted default-simple-udp-9nt4c-pt5fb
 INFO[0150] webhook received: ondelete/fleet.events.deleted default-simple-udp
 ```
+
+## Running
+
+Make sure you have a valid `KUBECONFIG` file pointing to the running cluster where the Fleets and GameServers will be available.
+
+```bash
+go run main.go --kubeconfig=[PATH_TO_KUBECONFIG] --verbose --on-event-url=http://localhost:8090/webhook
+```
+
+You should expect some output simular to:
+
+```bash
+INFO[0000] starting worker                               queue=OnAdd worker=1
+INFO[0000] starting worker                               queue=OnUpdate worker=1
+INFO[0000] starting worker                               queue=OnDelete worker=1
+{"controller_type":"v1.Fleet","message":"controller created for resource of type v1.Fleet","severity":"info","source":"controller","time":"2020-10-12T14:44:47.308991+02:00"}
+{"controller_type":"v1.GameServer","message":"controller created for resource of type v1.GameServer","severity":"info","source":"controller","time":"2020-10-12T14:44:47.309462+02:00"}
+{"message":"starting broadcaster","severity":"info","source":"broadcaster","time":"2020-10-12T14:44:47.309501+02:00"}
+DEBU[0005] POST http://localhost:8090/webhook - 200 OK   queue=OnAdd worker=1
+DEBU[0005] POST http://localhost:8090/webhook - 200 OK   queue=OnAdd worker=3
+DEBU[0005] POST http://localhost:8090/webhook - 200 OK   queue=OnAdd worker=2
+DEBU[0011] PUT http://localhost:8090/webhook - 200 OK    queue=OnUpdate worker=2
+DEBU[0026] DELETE http://localhost:8090/webhook?name=simple-udp-9nt4c-b2xck&namespace=default&source=gameserver.events.deleted - 200 OK  queue=OnDelete worker=3
+DEBU[0027] POST http://localhost:8090/webhook - 200 OK   queue=OnAdd worker=1
+DEBU[0027] PUT http://localhost:8090/webhook - 200 OK    queue=OnUpdate worker=1
+
+```
+
+## Roadmap
+
+- [ ] Add Authentication mechanism to HTTP Client
+- [ ] Make number of workers flag based
+- [ ] Option for minimal payload instead of the full K8S state
+- [ ] Filter by label before publishing
+- [ ] ...
