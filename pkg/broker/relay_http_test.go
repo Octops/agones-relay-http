@@ -1,23 +1,46 @@
 package broker
 
 import (
+	v1 "agones.dev/agones/pkg/apis/agones/v1"
 	"context"
-	"encoding/json"
 	"github.com/Octops/agones-event-broadcaster/pkg/events"
 	"github.com/Octops/agones-relay-http/internal/runtime"
 	"github.com/stretchr/testify/require"
 	"io/ioutil"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
+	"strings"
 	"sync"
 	"testing"
 )
 
 func TestRelayHTTP_SendMessage(t *testing.T) {
+	gs := &v1.GameServer{
+		ObjectMeta: metav1.ObjectMeta{
+			UID:       "a3fb9d0c-7b1f-4fa3-892c-723a6ddf627b",
+			Name:      "gameserver-udp",
+			Namespace: "default",
+			Labels: map[string]string{
+				"region": "us-east-1",
+			},
+			ResourceVersion: "1000",
+		},
+		Status: v1.GameServerStatus{
+			State:   "Ready",
+			Address: "172.134.34.53:7654",
+			Players: &v1.PlayerStatus{
+				Count: 10,
+			},
+		},
+	}
+
 	testCases := []struct {
 		name          string
 		endpointURL   string
 		requestMethod string
 		envelope      *events.Envelope
+		respBody      string
+		wantURL       string
 		wantErr       bool
 	}{
 		{
@@ -31,9 +54,13 @@ func TestRelayHTTP_SendMessage(t *testing.T) {
 						"event_type":   events.GameServerEventAdded.String(),
 					},
 				},
-				Message: "Payload OnAdd",
+				Message: events.GameServerAdded(&events.EventMessage{
+					Body: gs,
+				}),
 			},
-			wantErr: false,
+			respBody: "received OnAdd",
+			wantURL:  "http://localhost:8090/add",
+			wantErr:  false,
 		},
 		{
 			name:          "it should send a message for OnUpdate event",
@@ -46,9 +73,13 @@ func TestRelayHTTP_SendMessage(t *testing.T) {
 						"event_type":   events.GameServerEventUpdated.String(),
 					},
 				},
-				Message: "Payload OnUpdate",
+				Message: events.GameServerUpdated(&events.EventMessage{
+					Body: gs,
+				}),
 			},
-			wantErr: false,
+			respBody: "received OnUpdate",
+			wantURL:  "http://localhost:8090/update",
+			wantErr:  false,
 		},
 		{
 			name:          "it should send a message for OnDelete event",
@@ -61,9 +92,13 @@ func TestRelayHTTP_SendMessage(t *testing.T) {
 						"event_type":   events.GameServerEventDeleted.String(),
 					},
 				},
-				Message: "Payload OnDelete",
+				Message: events.GameServerDeleted(&events.EventMessage{
+					Body: gs,
+				}),
 			},
-			wantErr: false,
+			respBody: "received OnDelete",
+			wantURL:  "http://localhost:8090/delete?source=gameserverevent&namespace=default&name=gameserver-udp",
+			wantErr:  false,
 		},
 	}
 
@@ -78,7 +113,7 @@ func TestRelayHTTP_SendMessage(t *testing.T) {
 			client := func(req *http.Request) (*http.Response, error) {
 				response = &http.Response{
 					Status:  "200 OK",
-					Body:    req.Body,
+					Body:    ioutil.NopCloser(strings.NewReader(tc.respBody)), //req.Body, //ioutil.NopCloser(strings.NewReader("OK")),
 					Request: req,
 				}
 				wg.Done()
@@ -104,14 +139,9 @@ func TestRelayHTTP_SendMessage(t *testing.T) {
 			wg.Wait()
 			body, err := ioutil.ReadAll(response.Body)
 			require.NoError(t, err)
-
-			var payload Payload
-			err = json.Unmarshal(body, &payload)
-			require.NoError(t, err)
-			require.Equal(t, tc.envelope, payload.Body)
-
+			require.Equal(t, tc.respBody, string(body))
 			require.Equal(t, tc.requestMethod, response.Request.Method)
-			require.Equal(t, tc.endpointURL, response.Request.URL.String())
+			require.Equal(t, tc.wantURL, response.Request.URL.String())
 		})
 	}
 }
