@@ -31,8 +31,8 @@ github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/NYTimes/gziphandler v0.0.0-20170623195520-56545f4a5d46/go.mod h1:3wb06e3pkSAbeQ52E9H9iFoQsEEwGN64994WTCIhntQ=
-github.com/Octops/agones-event-broadcaster v0.1.9-alpha.3 h1:yP7+5TnOp71qY1FacK9k4MFFQF6FYgFOmijm01OEv4I=
-github.com/Octops/agones-event-broadcaster v0.1.9-alpha.3/go.mod h1:4WGuHkRZ7nPJY1Q3mohI1cQMK2JBi+ZgDRnFUnDTTTU=
+github.com/Octops/agones-event-broadcaster v0.1.9-alpha.4 h1:EyyW6QN3QowhnY+/s8Qmrfm9O5Uqi00sG7R9EDJzePA=
+github.com/Octops/agones-event-broadcaster v0.1.9-alpha.4/go.mod h1:4WGuHkRZ7nPJY1Q3mohI1cQMK2JBi+ZgDRnFUnDTTTU=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/PuerkitoBio/purell v1.0.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
 github.com/PuerkitoBio/purell v1.1.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
