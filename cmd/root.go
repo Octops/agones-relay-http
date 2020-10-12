@@ -35,11 +35,15 @@ import (
 )
 
 var (
-	cfgFile    string
-	verbose    bool
-	masterURL  string
-	kubeconfig string
-	syncPeriod string
+	cfgFile     string
+	verbose     bool
+	masterURL   string
+	kubeconfig  string
+	syncPeriod  string
+	onAddURL    string
+	onUpdateURL string
+	onDeleteURL string
+	onEventURL  string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -66,30 +70,23 @@ to quickly create a Cobra application.`,
 		ctx, cancel := context.WithCancel(context.Background())
 		runtime.SetupSignal(cancel)
 
-		duration, err := time.ParseDuration(syncPeriod)
-		if err != nil {
-			logger.WithError(err).Fatalf("error parsing sync-period flag: %s", syncPeriod)
-		}
-
 		cli, err := transport.NewClient(logger, "15s")
 		if err != nil {
 			logger.Fatal(err)
 		}
 
-		// TODO: URLS must be flags. Consider unique URL flag
-		relayConfig := broker.RelayConfig{
-			OnAddUrl:       "http://localhost:8090/webhook",
-			OnUpdateUrl:    "http://localhost:8090/webhook",
-			OnDeleteUrl:    "http://localhost:8090/webhook",
-			WorkerReplicas: 3,
-		}
-
+		relayConfig := createRelayConfigFromFlags()
 		bk, err := broker.NewRelayHTTP(logger, relayConfig, cli.Do)
 		if err != nil {
 			logger.Fatal(err)
 		}
 
 		go bk.Start(ctx)
+
+		duration, err := time.ParseDuration(syncPeriod)
+		if err != nil {
+			logger.WithError(err).Fatalf("error parsing sync-period flag: %s", syncPeriod)
+		}
 
 		gsBroadcaster := broadcaster.New(cfg, bk, duration)
 		gsBroadcaster.WithWatcherFor(&v1.Fleet{}).WithWatcherFor(&v1.GameServer{})
@@ -101,6 +98,25 @@ to quickly create a Cobra application.`,
 			logger.Fatal(errors.Wrap(err, "error starting broadcaster"))
 		}
 	},
+}
+
+func createRelayConfigFromFlags() broker.RelayConfig {
+	config := broker.RelayConfig{
+		WorkerReplicas: 3, //Number of workers subscribed per queue. TODO: make it flag based
+	}
+
+	if len(onEventURL) > 0 {
+		runtime.Logger().Warnf("using unique endpoints for all events: %s", onEventURL)
+		config.OnAddUrl = onEventURL
+		config.OnUpdateUrl = onEventURL
+		config.OnDeleteUrl = onEventURL
+	} else {
+		config.OnAddUrl = onAddURL
+		config.OnUpdateUrl = onUpdateURL
+		config.OnDeleteUrl = onDeleteURL
+	}
+
+	return config
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -118,6 +134,10 @@ func init() {
 	rootCmd.Flags().StringVar(&kubeconfig, "kubeconfig", "", "Set KUBECONFIG")
 	rootCmd.Flags().StringVar(&masterURL, "master", "", "The addr of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 	rootCmd.Flags().StringVar(&syncPeriod, "sync-period", "35s", "Set the minimum frequency at which watched resources are reconciled")
+	rootCmd.Flags().StringVar(&onAddURL, "on-add-url", "http://localhost:8090/webhook", "List of URLs to be used for OnAdd Events. They must be separated by a comma. I.e: http://localhost,http://localhost:8080/webhook")
+	rootCmd.Flags().StringVar(&onUpdateURL, "on-update-url", "http://localhost:8090/webhook", "List of URLs to be used for OnUpdate Events. They must be separated by a comma. I.e: http://localhost,http://localhost:8080/webhook")
+	rootCmd.Flags().StringVar(&onDeleteURL, "on-delete-url", "http://localhost:8090/webhook", "List of URLs to be used for OnDelete Events. They must be separated by a comma. I.e: http://localhost,http://localhost:8080/webhook")
+	rootCmd.Flags().StringVar(&onEventURL, "on-event-url", "", "List of URLs to be used for all kinds of Events. If specified the on-add-url, on-update-url and on-delete-url will be ignored. They must be separated by a comma. I.e: http://localhost,http://localhost:8080/webhook")
 	rootCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose logs")
 }
 
