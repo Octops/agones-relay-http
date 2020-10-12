@@ -8,7 +8,7 @@ import (
 	"io"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
-	"reflect"
+	"net/url"
 	"strings"
 )
 
@@ -57,24 +57,36 @@ func createRequest(record *EventRelayRecord, envelope *events.Envelope) *RelayRe
 
 func makeDeleteURLEndpoints(endpoints []string, envelope *events.Envelope) []string {
 	deleteEndpoints := []string{}
-
-	source := getEventSourceFromEnvelope(envelope)
-
+	typeFromEnvelope := getEventTypeFromEnvelope(envelope)
 	namespace, name := getResourceKeyFromMessage(envelope.Message.(events.Message))
+
 	for _, ep := range endpoints {
-		deleteEndpoints = append(deleteEndpoints, fmt.Sprintf("%s?source=%s&namespace=%s&name=%s", ep, strings.ToLower(source), namespace, name))
+		params := map[string]string{
+			"event_type": strings.ToLower(typeFromEnvelope),
+			"namespace":  namespace,
+			"name":       name,
+		}
+		deleteEndpoints = append(deleteEndpoints, fmt.Sprintf("%s?%s", ep, encodeUrlParams(params)))
 	}
 
 	return deleteEndpoints
 }
 
-func getEventSourceFromEnvelope(envelope *events.Envelope) string {
-	source := reflect.TypeOf(envelope.Message).Elem().String()
-	parts := strings.Split(source, ".")
-	if len(parts) > 1 {
-		source = parts[1]
+func encodeUrlParams(params map[string]string) string {
+	values := url.Values{}
+	for k, v := range params {
+		values.Add(k, v)
 	}
-	return source
+
+	return values.Encode()
+}
+
+func getEventTypeFromEnvelope(envelope *events.Envelope) string {
+	if _, ok := envelope.Header.Headers["event_type"]; !ok {
+		return "unknown"
+	}
+
+	return envelope.Header.Headers["event_type"]
 }
 
 func getResourceKeyFromMessage(msg events.Message) (string, string) {

@@ -97,7 +97,7 @@ func TestRelayHTTP_SendMessage(t *testing.T) {
 				}),
 			},
 			respBody: "received OnDelete",
-			wantURL:  "http://localhost:8090/delete?source=gameserverevent&namespace=default&name=gameserver-udp",
+			wantURL:  "http://localhost:8090/delete?event_type=gameserver.events.deleted&name=gameserver-udp&namespace=default",
 			wantErr:  false,
 		},
 	}
