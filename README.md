@@ -1,6 +1,6 @@
 # Agones Relay HTTP
 
-Notify HTTP endpoints when state changes events happen to GameServers or Fleets. 
+Publish Agones GameServers and Fleets details to HTTP endpoints.
 
 **The published payload contains an entire representation of the GameServer or Fleet at the moment the event got fired. Possible types of events are OnAdd, OnUpdate and OnDelete.**
 
