@@ -35,7 +35,7 @@ OnAdd, OnUpdate and OnDelete are not controled by the reconcile interval. Those 
 | OnUpdate     | PUT           | Old and New Obj     |
 | OnDelete     | DELETE        | None (Query Params) |
 
-Examples of the POST and PUT payloads can be found on [examples/payloads]() folder.
+Examples of the POST and PUT payloads can be found on [examples/payloads](https://github.com/Octops/agones-relay-http/tree/main/examples/payloads) folder.
 
 For `OnDelete` events the body of the request is null. The URL of the request looks similar to:
 ```
