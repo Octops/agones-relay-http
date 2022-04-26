@@ -28,6 +28,8 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	homedir "github.com/mitchellh/go-homedir"
@@ -88,13 +90,16 @@ to quickly create a Cobra application.`,
 			logger.WithError(err).Fatalf("error parsing sync-period flag: %s", syncPeriod)
 		}
 
-		gsBroadcaster := broadcaster.New(cfg, bk, duration)
+		gsBroadcaster := broadcaster.New(cfg, bk, duration, 8090, ":9090")
 		gsBroadcaster.WithWatcherFor(&v1.Fleet{}).WithWatcherFor(&v1.GameServer{})
 		if err := gsBroadcaster.Build(); err != nil {
 			logger.Fatal(errors.Wrap(err, "error building broadcaster"))
 		}
 
-		if err := gsBroadcaster.Start(); err != nil {
+		ctx, stop := signal.NotifyContext(context.TODO(), syscall.SIGTERM, syscall.SIGINT)
+		defer stop()
+
+		if err := gsBroadcaster.Start(ctx); err != nil {
 			logger.Fatal(errors.Wrap(err, "error starting broadcaster"))
 		}
 	},
