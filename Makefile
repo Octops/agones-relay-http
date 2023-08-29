@@ -36,7 +36,7 @@ OCTOPS_BIN := bin/agones-relay-http
 
 IMAGE_REPO=octops/agones-relay-http
 DOCKER_IMAGE_TAG ?= $(IMAGE_REPO):${VERSION}
-RELEASE_TAG=0.1.0
+RELEASE_TAG=0.2.0
 
 default: clean build
 

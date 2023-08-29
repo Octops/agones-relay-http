@@ -1,12 +1,15 @@
-FROM golang:1.14 AS builder
+FROM golang:1.21 AS builder
 
 WORKDIR /go/src/github.com/Octops/agones-relay-http
+
+COPY go.mod go.sum ./
+RUN go mod download
 
 COPY . .
 
 RUN make build && chmod +x /go/src/github.com/Octops/agones-relay-http/bin/agones-relay-http
 
-FROM alpine
+FROM gcr.io/distroless/static:nonroot
 
 WORKDIR /app
 
