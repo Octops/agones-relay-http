@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -90,7 +90,12 @@ to quickly create a Cobra application.`,
 			logger.WithError(err).Fatalf("error parsing sync-period flag: %s", syncPeriod)
 		}
 
-		gsBroadcaster := broadcaster.New(cfg, bk, duration, 8090, ":9090")
+		gsBroadcaster := broadcaster.New(cfg, bk, &broadcaster.Config{
+			SyncPeriod:             duration,
+			ServerPort:             8088,
+			MetricsBindAddress:     ":9090",
+			MaxConcurrentReconcile: 1,
+		})
 		gsBroadcaster.WithWatcherFor(&v1.Fleet{}).WithWatcherFor(&v1.GameServer{})
 		if err := gsBroadcaster.Build(); err != nil {
 			logger.Fatal(errors.Wrap(err, "error building broadcaster"))
